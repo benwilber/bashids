@@ -141,12 +141,45 @@ _ensure_length() {
 }
 
 _encrypt() {
-    local values="$1"
+    local values=$1 # Array
     local salt="$2"
     local min_length="$3"
     local alphabet="$4"
     local separators="$5"
     local guards="$6"
+
+    local len_alphabet=${#alphabet}
+    local len_separaters=${#separators}
+    local values_hash=0
+
+    for ((i=0; i < ${#values[@]}; i++)); do
+        let values_hash+=$(( ${values[$i]} % $(( $i + 100 )) ))
+    done
+
+    local encoded=${alphabet:$(( $values_hash % $len_alphabet )):1}
+    local lottery=$encoded
+
+    local last
+    local value
+    local alphabet_salt
+    for (( i=0; i < ${#values[@]}; i++ )); do
+        value=${values[$i]}
+        alphabet_salt="${lottery}${salt}${alphabet}"
+        alphabet_salt="${alphabet_salt:0:${len_alphabet}}"
+        alphabet=$(_reorder $alphabet $alphabet_salt)
+        last=$(_hash $value $alphabet)
+        encoded="${encoded}${last}"
+        value=$(( $value % $(( $(_ordinal ${last:0:1}) + 1 )) ))
+        encoded="${encoded}${separators:$(( $value % $len_separators )):1}"
+    done
+
+    encoded="${encoded:0:$(( ${#encoded} - 1 ))}"
+
+    if (( ${#encoded} >= $min_length )); then
+        echo "$encoded"
+    else
+        echo "$(_ensure_length $encoded $min_length $alphabet $guards $values_hash)"
+    fi
 }
 
 _decrypt() {
