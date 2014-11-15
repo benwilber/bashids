@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
+#
+# Pure bash implementation of the hashid algorithm
+# from http://hashids.org/
+#
+# Ben Wilber (benwilber@gmail.com)
+# https://github.com/benwilber/bashids
+#
 
 
+# Returns whether a value is an unsigned integer
 _is_uint() {
     [[ "$1" =~ ^[0-9]+$ ]]
 }
 
+# Splits a string into parts at multiple characters
 _split() {
     local IFS=$2
     for i in $1; do
@@ -12,19 +21,23 @@ _split() {
     done
 }
 
+# Integer index of substr
 _indexof() {
     local i=${1%%"$2"*}
     echo ${#i}
 }
 
+# Convert and ascii char to integer ordinal value
 _ordinal() {
     printf "%d" "'$1"
 }
 
+# ceil function
 _ceil() {
     echo $(( $(( $1 + $2 - 1 )) / $2 ))
 }
 
+# Hashes `number` using the given `alphabet` sequence
 _hash() {
     local number="$1"
     local alphabet="$2"
@@ -37,11 +50,12 @@ _hash() {
         number=$(( $number / $len_alphabet ))
         if (( $number == 0 )); then
             echo "$hashed"
-            return
+            break
         fi
     done
 }
 
+# Restores a number tuple from hashed using the given `alphabet` index
 _unhash() {
     local hashed="$1"
     local alphabet="$2"
@@ -61,6 +75,7 @@ _unhash() {
     echo $number
 }
 
+# Reorders `string` according to `salt`
 _reorder() {
     local string="$1"
     local salt="$2"
@@ -100,10 +115,12 @@ _reorder() {
 
 }
 
+# Returns the ceiled ratio of two numbers as int
 _index_from_ratio() {
     _ceil $1 $2
 }
 
+# Ensures the minimal hash length
 _ensure_length() {
     local encoded="$1"
     local min_length="$2"
@@ -137,6 +154,7 @@ _ensure_length() {
     echo "$encoded"
 }
 
+# Helper function that does the hash building without argument checks
 _encrypt() {
     local values=$1 # Array
     local salt="$2"
@@ -179,10 +197,14 @@ _encrypt() {
     fi
 }
 
+# Helper method that restores the values encoded in a hashid without
+# argument checks
 _decrypt() {
     local hashid="$1"
     local salt="$2"
     local alphabet="$3"
     local separators="$4"
     local guards="$5"
+
+    # TODO
 }
