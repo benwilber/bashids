@@ -206,5 +206,29 @@ _decrypt() {
     local separators="$4"
     local guards="$5"
 
-    # TODO
+    local part
+    local parts=()
+    for part in $(_split $hashid $guards); do
+        parts+=($part)
+    done
+
+    if (( 2 <= ${#parts[@]} <= 3 )); then
+        hashid=${parts[1]}
+    else
+        hashid=${parts[2]}
+    fi
+
+    if ! $hashid; then
+        return
+    fi
+
+    local lottery_char=${hashid:0:1}
+    hashid=${hashid:1}
+
+    for part in $(_split $hashid $separators); do
+        alphabet_salt="${lottery_char}${salt}${alphabet}"
+        alphabet_salt="${alphabet_salt:0:${#alphabet}}"
+        alphabet="$(_reorder $alphabet $alphabet_salt)"
+        echo $(_unhash $part $alphabet)
+    done
 }
