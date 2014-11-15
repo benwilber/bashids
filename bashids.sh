@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-_is_str() {
-    local candidate="$1"
-}
 
 _is_uint() {
     [[ "$1" =~ ^[0-9]+$ ]]
