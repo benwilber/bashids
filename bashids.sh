@@ -75,8 +75,8 @@ _unhash() {
 
     for ((i=0; i < $len_hash; i++)); do
         char=${hashed:$i:1}
-        position=$(_indexof "$alphabet" "$char")
-        let number+=$(( $position * $len_alphabet ** $(( $len_hash - $i - 1))))
+        position=$(_indexof $alphabet $char)
+        let number+=$(( $position * $len_alphabet ** $(( $len_hash - $i - 1)) ))
     done
 
     echo $number
@@ -205,7 +205,7 @@ _encrypt() {
     fi
 }
 
-# Helper method that restores the values encoded in a hashid without
+# Helper function that restores the values encoded in a hashid without
 # argument checks
 _decrypt() {
     local hashid="$1"
@@ -214,19 +214,10 @@ _decrypt() {
     local separators="$4"
     local guards="$5"
 
-    local part
-    local parts=()
-    for part in $(_split $hashid $guards); do
-        parts+=($part)
-    done
+    local parts=($(_split $hashid $guards))
+    hashid=${parts[0]}
 
-    if (( 2 <= ${#parts[@]} <= 3 )); then
-        hashid=${parts[1]}
-    else
-        hashid=${parts[2]}
-    fi
-
-    if ! $hashid; then
+    if [[ -z $hashid ]]; then
         return
     fi
 
@@ -340,9 +331,10 @@ decrypt() {
     local alphabet=$ALPHABET
 
     local OPTIND=0
-    while getopts "s:l:a:" opt; do
+    while getopts "s:a:" opt; do
         case $opt in
             s) salt="$OPTARG";;
+            a) alphabet="$OPTARG";;
         esac
     done
     shift $(( $OPTIND - 1 ))
@@ -367,11 +359,34 @@ decrypt() {
     _decrypt $hashid $salt $alphabet $separators $guards
 }
 
-hashid=$(encrypt -s mysalt 34 25 256)
-echo $hashid
-numbers=$(decrypt -s mysalt $hashid)
-echo "$numbers"
+main() {
+    local mode=""
+    local min_length=2
+    local alphabet=$ALPHABET
 
+    local OPTIND=0
+    while getopts "s:l:a:ed" opt; do
+        case $opt in
+            s) salt="$OPTARG";;
+            l) min_length="$OPTARG";;
+            a) alphabet="$OPTARG";;
+            e) mode="encrypt";;
+            d) mode="decrypt";;
+        esac
+    done
+    shift $(( $OPTIND - 1 ))
 
+    if [[ -z $mode ]]; then
+        echo "error: need a mode.  either -e (encrypt) or -d (decrypt)"
+        exit 1
+    fi
+
+    case $mode in
+        encrypt) encrypt -s $salt -a $alphabet $*;;
+        decrypt) decrypt -s $salt $*;;
+    esac
+}
+
+main $*
 
 
