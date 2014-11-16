@@ -261,7 +261,7 @@ _getparams() {
 
     if (( $len_alphabet + $len_separators < 16 )); then
         echo "error: alphabet must contain at least 16 unique characters" >&2
-        exit 1
+        return 1
     fi
 
     separators=$(_reorder $separators $salt)
@@ -310,7 +310,7 @@ encrypt() {
 
     if [[ -z $salt ]]; then
         echo "error: salt is required.  in fact, it's the whole point" >&2
-        exit 1
+        return 1
     fi
 
     shift $(( $OPTIND - 1 ))
@@ -343,12 +343,12 @@ decrypt() {
 
     if [[ -z $salt ]]; then
         echo "error: salt is required.  in fact, it's the whole point" >&2
-        exit 1
+        return 1
     fi
 
     if [[ -z $hashid ]]; then
         echo "error: hashid required" >&2
-        exit 1
+        return 1
     fi
 
     local params=$(_getparams $salt $min_length $alphabet)
@@ -378,7 +378,7 @@ main() {
 
     if [[ -z $mode ]]; then
         echo "error: need a mode.  either -e (encrypt) or -d (decrypt)"
-        exit 1
+        return 1
     fi
 
     case $mode in
@@ -388,5 +388,4 @@ main() {
 }
 
 main $*
-
 
