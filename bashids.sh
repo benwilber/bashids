@@ -7,6 +7,9 @@
 # https://github.com/benwilber/bashids
 #
 
+ALPHABET="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+RATIO_SEPARATORS=4
+RATIO_GUARDS=12
 
 # Returns whether a value is an unsigned integer
 _is_uint() {
@@ -24,7 +27,11 @@ _split() {
 # Integer index of substr
 _indexof() {
     local i=${1%%"$2"*}
-    echo ${#i}
+    if (( ${#i} == ${#1} )); then
+        echo -1
+    else
+        echo ${#i}
+    fi
 }
 
 # Convert and ascii char to integer ordinal value
@@ -156,7 +163,8 @@ _ensure_length() {
 
 # Helper function that does the hash building without argument checks
 _encrypt() {
-    local values=$1 # Array
+    local values=($1) # Array
+
     local salt="$2"
     local min_length="$3"
     local alphabet="$4"
@@ -164,7 +172,7 @@ _encrypt() {
     local guards="$6"
 
     local len_alphabet=${#alphabet}
-    local len_separaters=${#separators}
+    local len_separators=${#separators}
     local values_hash=0
 
     for ((i=0; i < ${#values[@]}; i++)); do
@@ -232,3 +240,138 @@ _decrypt() {
         echo $(_unhash $part $alphabet)
     done
 }
+
+_getparams() {
+    local salt="$1"
+    local min_length="$2"
+    local alphabet="$3"
+
+    local seps="cfhistuCFHISTU"
+    local separators=""
+    for ((i=0; i < ${#seps}; i++)); do
+        if (( $(_indexof $alphabet ${seps:$i:1}) >= 0 )); then
+            separators="${separators}${seps:$i:1}"
+        fi
+    done
+
+    local _alphabet
+    local x
+    for ((i=0; i < ${#alphabet}; i++ )); do
+        x=${alphabet:$i:1}
+        if (( $(_indexof $alphabet $x) == $i )) && (( $(_indexof $separators $x) == -1 )); then
+            _alphabet="${_alphabet}${x}"
+        fi
+    done
+    alphabet="$_alphabet"
+
+    local len_alphabet=${#alphabet}
+    local len_separators=${#separators}
+
+
+    if (( $len_alphabet + $len_separators < 16 )); then
+        echo "error: alphabet must contain at least 16 unique characters" >&2
+        exit 1
+    fi
+
+    separators=$(_reorder $separators $salt)
+    local min_seperators=$(_index_from_ratio $len_alphabet $RATIO_SEPARATORS)
+
+    if [[ -z "$separators" ]] || (( $len_separators < $min_seperators )); then
+        if (( $min_seperators == 1 )); then
+            min_seperators=2
+        fi
+
+        if (( $min_seperators > $len_separators )); then
+            local split_at=$(( $min_seperators - $len_separators ))
+            separators="${separators}${alphabet:0:${split_at}}"
+            alphabet="${alphabet:${split_at}}"
+            len_alphabet=${#alphabet}
+        fi
+    fi
+
+    alphabet=$(_reorder $alphabet $salt)
+    local num_guards=$(_index_from_ratio $len_alphabet $RATIO_GUARDS)
+    if (( $len_alphabet < 3 )); then
+        guards=${separators:0:${num_guards}}
+        separators=${separators:${num_guards}}
+    else
+        guards=${alphabet:0:${num_guards}}
+        alphabet=${alphabet:${num_guards}}
+    fi
+
+    echo "$alphabet" "$separators" "$guards"
+}
+
+
+encrypt() {
+
+    local salt
+    local min_length=2
+    local alphabet=$ALPHABET
+
+    local OPTIND=0
+    while getopts "s:a:" opt; do
+        case $opt in
+            s) salt="$OPTARG";;
+            a) alphabet="$OPTARG";;
+        esac
+    done
+
+    if [[ -z $salt ]]; then
+        echo "error: salt is required.  in fact, it's the whole point" >&2
+        exit 1
+    fi
+
+    shift $(( $OPTIND - 1 ))
+
+    local params=$(_getparams $salt $min_length $alphabet)
+    alphabet=${params[0]}
+    local separators=${params[1]}
+    local guards=${params[2]}
+
+    _encrypt "$*" $salt $min_length $alphabet $separators $guards
+}
+
+decrypt() {
+
+    local salt
+    local hashid
+    local min_length=2
+    local alphabet=$ALPHABET
+
+    local OPTIND=0
+    while getopts "s:l:a:" opt; do
+        case $opt in
+            s) salt="$OPTARG";;
+        esac
+    done
+    shift $(( $OPTIND - 1 ))
+
+    local hashid="$1"
+
+    if [[ -z $salt ]]; then
+        echo "error: salt is required.  in fact, it's the whole point" >&2
+        exit 1
+    fi
+
+    if [[ -z $hashid ]]; then
+        echo "error: hashid required" >&2
+        exit 1
+    fi
+
+    local params=$(_getparams $salt $min_length $alphabet)
+    alphabet=${params[0]}
+    local separators=${params[1]}
+    local guards=${params[2]}
+
+    _decrypt $hashid $salt $alphabet $separators $guards
+}
+
+hashid=$(encrypt -s mysalt 34 25 256)
+echo $hashid
+numbers=$(decrypt -s mysalt $hashid)
+echo "$numbers"
+
+
+
+
