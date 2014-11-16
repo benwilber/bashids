@@ -11,11 +11,6 @@ ALPHABET="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 RATIO_SEPARATORS=4
 RATIO_GUARDS=12
 
-# Returns whether a value is an unsigned integer
-_is_uint() {
-    [[ "$1" =~ ^[0-9]+$ ]]
-}
-
 # Splits a string into parts at multiple characters
 _split() {
     local IFS=$2
