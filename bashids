@@ -368,13 +368,28 @@ decrypt() {
 }
 
 usage() {
+    local scriptname="${0##*/}"
 cat <<- EOF
+usage: $scriptname (-e|-d) -s SALT [-l MIN_LENGTH -a ALPHABET] (hashid|ints)
+    -e <encrypt>
+    -d <decrypt>
     -s SALT
     -l MIN_LENGTH (default: $MIN_LENGTH)
     -a ALPHABET (default: $ALPHABET)
-    -e <encrypt>
-    -d <decrypt>
     -h <help>
+
+Example:
+
+  Encryption:
+  $ $scriptname -e -s MySalt 25 46 57
+  1liJyCK1
+
+  Decryption:
+  $ $scriptname -d -s MySalt 1liJyCK1
+  25
+  46
+  57
+
 EOF
 exit 0
 }
