@@ -6,8 +6,15 @@
 # Ben Wilber (benwilber@gmail.com)
 # https://github.com/benwilber/bashids
 #
+set -e
+shopt -s -o nounset
 
+# Default alphabet used for building hashids
 ALPHABET="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+
+# Default minimum length of a hashid
+MIN_LENGTH=2
+
 RATIO_SEPARATORS=4
 RATIO_GUARDS=12
 
@@ -21,11 +28,11 @@ _split() {
 
 # Integer index of substr
 _indexof() {
-    local i=${1%%"$2"*}
-    if (( ${#i} == ${#1} )); then
+    local i="${1%%"$2"*}"
+    if (( "${#i}" == "${#1}" )); then
         echo -1
     else
-        echo ${#i}
+        echo "${#i}"
     fi
 }
 
@@ -45,7 +52,7 @@ _hash() {
     local alphabet="$2"
 
     local hashed=""
-    local len_alphabet=${#alphabet}
+    local len_alphabet="${#alphabet}"
 
     while true; do
         hashed="${alphabet:$(( $number % $len_alphabet )):1}${hashed}"
@@ -65,12 +72,12 @@ _unhash() {
     local char
     local number=0
     local position
-    local len_hash=${#hashed}
-    local len_alphabet=${#alphabet}
+    local len_hash="${#hashed}"
+    local len_alphabet="${#alphabet}"
 
     for ((i=0; i < $len_hash; i++)); do
-        char=${hashed:$i:1}
-        position=$(_indexof $alphabet $char)
+        char="${hashed:$i:1}"
+        position=$(_indexof "$alphabet" "$char")
         let number+=$(( $position * $len_alphabet ** $(( $len_hash - $i - 1)) ))
     done
 
@@ -82,12 +89,14 @@ _reorder() {
     local string="$1"
     local salt="$2"
 
-    if (( ${#salt} == 0 )); then
+    if (( "${#salt}" == 0 )); then
         echo "$string"
         return
     fi
 
-    local i=$((${#string} - 1))
+    local len_string="${#string}"
+    local len_salt="${#salt}"
+    local i=$(( $len_string - 1 ))
     local index=0
     local integer_sum=0
     local salt_index
@@ -95,19 +104,19 @@ _reorder() {
     local trailer
 
     while (( $i > 0)); do
-        index=$(( $index % ${#salt} ))
-        integer=$(_ordinal ${salt:$index:1})
+        index=$(( $index % $len_salt ))
+        integer=$(_ordinal "${salt:$index:1}")
         let integer_sum+=$integer
         j=$(( $(( $integer + $index + $integer_sum )) % $i ))
 
-        temp=${string:$j:1}
+        temp="${string:$j:1}"
         trailer=""
-        if (( $j + 1 < ${#string} )); then
-            trailer=${string:$(( $j + 1 ))}
+        if (( $j + 1 < "${#string}" )); then
+            trailer="${string:$(( $j + 1 ))}"
         fi
 
-        string=${string:0:$j}${string:$i:1}${trailer}
-        string=${string:0:$i}${temp}${string:$(( $i + 1 ))}
+        string="${string:0:$j}${string:$i:1}${trailer}"
+        string="${string:0:$i}${temp}${string:$(( $i + 1 ))}"
 
         let i-=1
         let index+=1
@@ -115,11 +124,6 @@ _reorder() {
 
     echo "$string"
 
-}
-
-# Returns the ceiled ratio of two numbers as int
-_index_from_ratio() {
-    _ceil $1 $2
 }
 
 # Ensures the minimal hash length
@@ -130,25 +134,28 @@ _ensure_length() {
     local guards="$4"
     local values_hash="$5"
 
-    local len_guards=${#guards}
-    local guard_index=$(( $(( $values_hash + $(_ordinal ${encoded:0:1}) )) % $len_guards ))
+    local len_guards="${#guards}"
+    local guard_index=$(( $(( $values_hash + $(_ordinal "${encoded:0:1}") )) % $len_guards ))
     encoded="${guards:${guard_index}:1}${encoded}"
 
-    if (( ${#encoded} < $min_length )); then
-        guard_index=$(( $(( $values_hash + $(_ordinal ${encoded:2:1}) )) % $len_guards ))
+    if (( "${#encoded}" < $min_length )); then
+        guard_index=$(( $(( $values_hash + $(_ordinal "${encoded:2:1}") )) % $len_guards ))
         encoded="${encoded}${guards:${guard_index}:1}"
     fi
 
-    local split_at=$(( ${#alphabet} / 2 ))
+    local len_alphabet="${#alphabet}"
+    local split_at=$(( $len_alphabet / 2 ))
     local excess
     local from_index
+    local encoded_len
 
-    while (( ${#encoded} < $min_length )); do
-        alphabet=$(_reorder $alphabet $alphabet)
+    while (( "${#encoded}" < $min_length )); do
+        alphabet="$(_reorder "$alphabet" "$alphabet")"
         encoded="${alphabet:${split_at}}${encoded}${alphabet:${split_at}}"
-        excess=$(( ${#encoded} - $min_length ))
+        encoded_len="${#encoded}"
+        excess=$(( $encoded_len - $min_length ))
         if (( $excess > 0)); then
-            from_index=$(( excess / 2 ))
+            from_index=$(( $excess / 2 ))
             encoded="${encoded:${from_index}:$(( $from_index + $min_length ))}"
         fi
     done
@@ -158,24 +165,23 @@ _ensure_length() {
 
 # Helper function that does the hash building without argument checks
 _encrypt() {
-    local values=($1) # Array
-
+    local values=($1)
     local salt="$2"
     local min_length="$3"
     local alphabet="$4"
     local separators="$5"
     local guards="$6"
 
-    local len_alphabet=${#alphabet}
-    local len_separators=${#separators}
+    local len_alphabet="${#alphabet}"
+    local len_separators="${#separators}"
     local values_hash=0
 
     for ((i=0; i < ${#values[@]}; i++)); do
         let values_hash+=$(( ${values[$i]} % $(( $i + 100 )) ))
     done
 
-    local encoded=${alphabet:$(( $values_hash % $len_alphabet )):1}
-    local lottery=$encoded
+    local encoded="${alphabet:$(( $values_hash % $len_alphabet )):1}"
+    local lottery="$encoded"
 
     local last
     local value
@@ -184,19 +190,19 @@ _encrypt() {
         value=${values[$i]}
         alphabet_salt="${lottery}${salt}${alphabet}"
         alphabet_salt="${alphabet_salt:0:${len_alphabet}}"
-        alphabet=$(_reorder $alphabet $alphabet_salt)
-        last=$(_hash $value $alphabet)
+        alphabet="$(_reorder "$alphabet" "$alphabet_salt")"
+        last=$(_hash $value "$alphabet")
         encoded="${encoded}${last}"
-        value=$(( $value % $(( $(_ordinal ${last:0:1}) + 1 )) ))
+        value=$(( $value % $(( $(_ordinal "${last:0:1}") + $i )) ))
         encoded="${encoded}${separators:$(( $value % $len_separators )):1}"
     done
 
     encoded="${encoded:0:$(( ${#encoded} - 1 ))}"
 
-    if (( ${#encoded} >= $min_length )); then
+    if (( "${#encoded}" >= $min_length )); then
         echo "$encoded"
     else
-        echo "$(_ensure_length $encoded $min_length $alphabet $guards $values_hash)"
+        echo "$(_ensure_length "$encoded" "$min_length" "$alphabet" "$guards" "$values_hash")"
     fi
 }
 
@@ -234,33 +240,33 @@ _getparams() {
 
     local seps="cfhistuCFHISTU"
     local separators=""
-    for ((i=0; i < ${#seps}; i++)); do
-        if (( $(_indexof $alphabet ${seps:$i:1}) >= 0 )); then
+    for ((i=0; i < "${#seps}"; i++)); do
+        if (( $(_indexof "$alphabet" "${seps:$i:1}") >= 0 )); then
             separators="${separators}${seps:$i:1}"
         fi
     done
 
     local _alphabet
     local x
-    for ((i=0; i < ${#alphabet}; i++ )); do
-        x=${alphabet:$i:1}
-        if (( $(_indexof $alphabet $x) == $i )) && (( $(_indexof $separators $x) == -1 )); then
+    for ((i=0; i < "${#alphabet}"; i++ )); do
+        x="${alphabet:$i:1}"
+        if (( $(_indexof "$alphabet" "$x") == $i )) && (( $(_indexof "$separators" "$x") == -1 )); then
             _alphabet="${_alphabet}${x}"
         fi
     done
     alphabet="$_alphabet"
 
-    local len_alphabet=${#alphabet}
-    local len_separators=${#separators}
+    local len_alphabet="${#alphabet}"
+    local len_separators="${#separators}"
 
 
     if (( $len_alphabet + $len_separators < 16 )); then
         echo "error: alphabet must contain at least 16 unique characters" >&2
-        return 1
+        exit 1
     fi
 
-    separators=$(_reorder $separators $salt)
-    local min_seperators=$(_index_from_ratio $len_alphabet $RATIO_SEPARATORS)
+    separators="$(_reorder "$separators" "$salt")"
+    local min_seperators=$(_ceil $len_alphabet $RATIO_SEPARATORS)
 
     if [[ -z "$separators" ]] || (( $len_separators < $min_seperators )); then
         if (( $min_seperators == 1 )); then
@@ -271,116 +277,138 @@ _getparams() {
             local split_at=$(( $min_seperators - $len_separators ))
             separators="${separators}${alphabet:0:${split_at}}"
             alphabet="${alphabet:${split_at}}"
-            len_alphabet=${#alphabet}
+            len_alphabet="${#alphabet}"
         fi
     fi
 
-    alphabet=$(_reorder $alphabet $salt)
-    local num_guards=$(_index_from_ratio $len_alphabet $RATIO_GUARDS)
+    alphabet="$(_reorder "$alphabet" "$salt")"
+    local num_guards=$(_ceil $len_alphabet $RATIO_GUARDS)
     if (( $len_alphabet < 3 )); then
-        guards=${separators:0:${num_guards}}
-        separators=${separators:${num_guards}}
+        guards="${separators:0:${num_guards}}"
+        separators="${separators:${num_guards}}"
     else
-        guards=${alphabet:0:${num_guards}}
-        alphabet=${alphabet:${num_guards}}
+        guards="${alphabet:0:${num_guards}}"
+        alphabet="${alphabet:${num_guards}}"
     fi
 
     echo "$alphabet" "$separators" "$guards"
 }
 
-
 encrypt() {
-
     local salt
-    local min_length=2
-    local alphabet=$ALPHABET
+    local min_length
+    local alphabet
 
     local OPTIND=0
-    while getopts "s:a:" opt; do
+    while getopts "s:a:l:" opt; do
         case $opt in
             s) salt="$OPTARG";;
             a) alphabet="$OPTARG";;
+            l) min_length="$OPTARG";;
         esac
     done
 
-    if [[ -z $salt ]]; then
-        echo "error: salt is required.  in fact, it's the whole point" >&2
-        return 1
+    if [[ -z "$salt" ]]; then
+        echo "error: salt (-s) required" >&2
+        exit 1
     fi
 
     shift $(( $OPTIND - 1 ))
 
-    local params=$(_getparams $salt $min_length $alphabet)
-    alphabet=${params[0]}
-    local separators=${params[1]}
-    local guards=${params[2]}
+    local params
+    params=($(_getparams "$salt" "$min_length" "$alphabet"))
+    alphabet="${params[0]}"
+    local separators="${params[1]}"
+    local guards="${params[2]}"
 
-    _encrypt "$*" $salt $min_length $alphabet $separators $guards
+    if [[ -z "$*" ]]; then
+        echo "error: nothing to hash" >& 2
+        exit 1
+    fi
+
+    _encrypt "$*" "$salt" "$min_length" "$alphabet" "$separators" "$guards"
 }
 
 decrypt() {
 
     local salt
     local hashid
-    local min_length=2
-    local alphabet=$ALPHABET
+    local min_length
+    local alphabet
 
     local OPTIND=0
-    while getopts "s:a:" opt; do
+    while getopts "s:a:l:" opt; do
         case $opt in
             s) salt="$OPTARG";;
             a) alphabet="$OPTARG";;
+            l) min_length="$OPTARG";;
         esac
     done
     shift $(( $OPTIND - 1 ))
 
     local hashid="$1"
 
-    if [[ -z $salt ]]; then
-        echo "error: salt is required.  in fact, it's the whole point" >&2
-        return 1
+    if [[ -z "$salt" ]]; then
+        echo "error: salt (-s) required" >&2
+        exit 1
     fi
 
-    if [[ -z $hashid ]]; then
+    if [[ -z "$hashid" ]]; then
         echo "error: hashid required" >&2
-        return 1
+        exit 1
     fi
 
-    local params=$(_getparams $salt $min_length $alphabet)
-    alphabet=${params[0]}
-    local separators=${params[1]}
-    local guards=${params[2]}
+    local params
+    params=($(_getparams "$salt" "$min_length" "$alphabet"))
+    alphabet="${params[0]}"
+    local separators="${params[1]}"
+    local guards="${params[2]}"
 
-    _decrypt $hashid $salt $alphabet $separators $guards
+    _decrypt "$hashid" "$salt" "$alphabet" "$separators" "$guards"
+}
+
+usage() {
+cat <<- EOF
+    -s SALT
+    -l MIN_LENGTH (default: $MIN_LENGTH)
+    -a ALPHABET (default: $ALPHABET)
+    -e <encrypt>
+    -d <decrypt>
+    -h <help>
+EOF
+exit 0
 }
 
 main() {
-    local mode=""
-    local min_length=2
-    local alphabet=$ALPHABET
+    local mode
+    local salt
+    local min_length="$MIN_LENGTH"
+    local alphabet="$ALPHABET"
 
     local OPTIND=0
-    while getopts "s:l:a:ed" opt; do
+    while getopts "s:l:a:edh" opt; do
         case $opt in
             s) salt="$OPTARG";;
             l) min_length="$OPTARG";;
             a) alphabet="$OPTARG";;
             e) mode="encrypt";;
             d) mode="decrypt";;
+            h) usage;;
+            *) echo "error: unknown option $opt" >&2; exit 1;;
         esac
     done
     shift $(( $OPTIND - 1 ))
 
-    if [[ -z $mode ]]; then
-        echo "error: need a mode.  either -e (encrypt) or -d (decrypt)"
-        return 1
+    if [[ -z "$mode" ]]; then
+        echo "error: need a mode.  either -e (encrypt) or -d (decrypt)" >&2
+        exit 1
     fi
 
-    case $mode in
-        encrypt) encrypt -s $salt -a $alphabet $*;;
-        decrypt) decrypt -s $salt $*;;
+    case "$mode" in
+        encrypt) encrypt -s "$salt" -a "$alphabet" -l "$min_length" $*;;
+        decrypt) decrypt -s "$salt" -a "$alphabet" -l "$min_length" $*;;
     esac
 }
 
-main $*
+main "${@}"
 
