@@ -36,7 +36,7 @@ _indexof() {
     fi
 }
 
-# Convert and ascii char to integer ordinal value
+# Convert an ascii char to integer ordinal value
 _ordinal() {
     printf "%d" "'$1"
 }
