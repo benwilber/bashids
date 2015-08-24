@@ -13,9 +13,11 @@ shopt -s -o nounset
 ALPHABET="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 
 # Default minimum length of a hashid
-MIN_LENGTH=2
+MIN_LENGTH=0
 
-RATIO_SEPARATORS=4
+DEFAULT_SALT=""
+
+RATIO_SEPARATORS=3.5
 RATIO_GUARDS=12
 
 # Splits a string into parts at multiple characters
@@ -43,7 +45,7 @@ _ordinal() {
 
 # ceil function
 _ceil() {
-    echo $(( $(( $1 + $2 - 1 )) / $2 ))
+    echo "($1 + $2 - 1) / $2" | bc
 }
 
 # Hashes `number` using the given `alphabet` sequence
@@ -371,9 +373,9 @@ usage() {
     local scriptname="${0##*/}"
 cat <<- EOF
 usage: $scriptname (-e|-d) -s SALT [-l MIN_LENGTH -a ALPHABET] (hashid|ints)
-    -e <encrypt>
-    -d <decrypt>
-    -s SALT
+    -e <encode>
+    -d <decode>
+    -s SALT (default: "$DEFAULT_SALT")
     -l MIN_LENGTH (default: $MIN_LENGTH)
     -a ALPHABET (default: $ALPHABET)
     -h <help>
@@ -396,7 +398,7 @@ exit 0
 
 main() {
     local mode
-    local salt
+    local salt="$DEFAULT_SALT"
     local min_length="$MIN_LENGTH"
     local alphabet="$ALPHABET"
 
@@ -406,8 +408,8 @@ main() {
             s) salt="$OPTARG";;
             l) min_length="$OPTARG";;
             a) alphabet="$OPTARG";;
-            e) mode="encrypt";;
-            d) mode="decrypt";;
+            e) mode="encode";;
+            d) mode="decode";;
             h) usage;;
             *) echo "error: unknown option $opt" >&2; exit 1;;
         esac
@@ -415,13 +417,13 @@ main() {
     shift $(( $OPTIND - 1 ))
 
     if [[ -z "$mode" ]]; then
-        echo "error: need a mode.  either -e (encrypt) or -d (decrypt)" >&2
+        echo "error: need a mode.  either -e (encode) or -d (decode)" >&2
         exit 1
     fi
 
     case "$mode" in
-        encrypt) encrypt -s "$salt" -a "$alphabet" -l "$min_length" $*;;
-        decrypt) decrypt -s "$salt" -a "$alphabet" -l "$min_length" $*;;
+        encode) encode -s "$salt" -a "$alphabet" -l "$min_length" $*;;
+        decode) decede -s "$salt" -a "$alphabet" -l "$min_length" $*;;
     esac
 }
 
