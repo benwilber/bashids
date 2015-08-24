@@ -7,16 +7,13 @@
 # https://github.com/benwilber/bashids
 #
 set -e
-shopt -s -o nounset
 
 # Default alphabet used for building hashids
 ALPHABET="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 
 # Default minimum length of a hashid
 MIN_LENGTH=0
-
 DEFAULT_SALT=""
-
 RATIO_SEPARATORS=3.5
 RATIO_GUARDS=12
 
@@ -80,6 +77,10 @@ _unhash() {
     for ((i=0; i < $len_hash; i++)); do
         char="${hashed:$i:1}"
         position=$(_indexof "$alphabet" "$char")
+        if (( $position == -1 )); then
+            echo "error: invalid hashid" >&2
+            exit 1
+        fi
         let number+=$(( $position * $len_alphabet ** $(( $len_hash - $i - 1)) ))
     done
 
@@ -90,30 +91,32 @@ _unhash() {
 _reorder() {
     local string="$1"
     local salt="$2"
+    local decode="$3"
 
-    if (( "${#salt}" == 0 )); then
+    if (( ${#salt} == 0 )); then
         echo "$string"
         return
     fi
 
-    local len_string="${#string}"
-    local len_salt="${#salt}"
-    local i=$(( $len_string - 1 ))
+    local i=$(( ${#string} - 1 ))
+    local j
     local index=0
     local integer_sum=0
+    local integer
     local salt_index
     local temp
     local trailer
 
-    while (( $i > 0)); do
-        index=$(( $index % $len_salt ))
+    
+    while (( $i > 0 )); do
+        let index%=${#salt}
         integer=$(_ordinal "${salt:$index:1}")
         let integer_sum+=$integer
         j=$(( $(( $integer + $index + $integer_sum )) % $i ))
 
         temp="${string:$j:1}"
         trailer=""
-        if (( $j + 1 < "${#string}" )); then
+        if (( $j + 1 < ${#string} )); then
             trailer="${string:$(( $j + 1 ))}"
         fi
 
@@ -125,7 +128,6 @@ _reorder() {
     done
 
     echo "$string"
-
 }
 
 # Ensures the minimal hash length
@@ -153,12 +155,13 @@ _ensure_length() {
 
     while (( "${#encoded}" < $min_length )); do
         alphabet="$(_reorder "$alphabet" "$alphabet")"
-        encoded="${alphabet:${split_at}}${encoded}${alphabet:${split_at}}"
+        encoded="${alphabet:${split_at}}${encoded}${alphabet:0:${split_at}}"
+
         encoded_len="${#encoded}"
         excess=$(( $encoded_len - $min_length ))
         if (( $excess > 0)); then
             from_index=$(( $excess / 2 ))
-            encoded="${encoded:${from_index}:$(( $from_index + $min_length ))}"
+            encoded="${encoded:${from_index}:${min_length}}"
         fi
     done
 
@@ -166,7 +169,7 @@ _ensure_length() {
 }
 
 # Helper function that does the hash building without argument checks
-_encrypt() {
+_encode() {
     local values=($1)
     local salt="$2"
     local min_length="$3"
@@ -193,7 +196,7 @@ _encrypt() {
         alphabet_salt="${lottery}${salt}${alphabet}"
         alphabet_salt="${alphabet_salt:0:${len_alphabet}}"
         alphabet="$(_reorder "$alphabet" "$alphabet_salt")"
-        last=$(_hash $value "$alphabet")
+        last=$(_hash "$value" "$alphabet")
         encoded="${encoded}${last}"
         value=$(( $value % $(( $(_ordinal "${last:0:1}") + $i )) ))
         encoded="${encoded}${separators:$(( $value % $len_separators )):1}"
@@ -210,15 +213,20 @@ _encrypt() {
 
 # Helper function that restores the values encoded in a hashid without
 # argument checks
-_decrypt() {
+_decode() {
     local hashid="$1"
     local salt="$2"
     local alphabet="$3"
     local separators="$4"
     local guards="$5"
+    local alphabet_salt
 
-    local parts=($(_split $hashid $guards))
-    hashid=${parts[0]}
+    local parts=($(_split "$hashid" "$guards"))
+    if (( 2 <= ${#parts[@]} && ${#parts[@]} <= 3 )); then
+        hashid=${parts[1]}
+    else
+        hashid=${parts[0]}
+    fi
 
     if [[ -z $hashid ]]; then
         return
@@ -227,11 +235,16 @@ _decrypt() {
     local lottery_char=${hashid:0:1}
     hashid=${hashid:1}
 
-    for part in $(_split $hashid $separators); do
+    local part
+    local unhashed
+    for part in $(_split "$hashid" "$separators"); do
         alphabet_salt="${lottery_char}${salt}${alphabet}"
         alphabet_salt="${alphabet_salt:0:${#alphabet}}"
-        alphabet="$(_reorder $alphabet $alphabet_salt)"
-        echo $(_unhash $part $alphabet)
+        alphabet="$(_reorder "$alphabet" "$alphabet_salt")"
+        unhashed="$(_unhash "$part" "$alphabet")"
+        if [[ "$unhashed" ]]; then
+            echo "$unhashed"
+        fi
     done
 }
 
@@ -296,7 +309,14 @@ _getparams() {
     echo "$alphabet" "$separators" "$guards"
 }
 
-encrypt() {
+_verify_integers() {
+    if ! [[ "$1" =~ ^[0-9\ ]+$ ]]; then
+        echo "error: only unsigned integers are supported" >&2
+        exit 1
+    fi
+}
+
+encode() {
     local salt
     local min_length
     local alphabet
@@ -310,32 +330,28 @@ encrypt() {
         esac
     done
 
-    if [[ -z "$salt" ]]; then
-        echo "error: salt (-s) required" >&2
-        exit 1
-    fi
-
     shift $(( $OPTIND - 1 ))
 
-    local params
-    params=($(_getparams "$salt" "$min_length" "$alphabet"))
+    local params=($(_getparams "$salt" "$min_length" "$alphabet"))
     alphabet="${params[0]}"
     local separators="${params[1]}"
     local guards="${params[2]}"
 
     if [[ -z "$*" ]]; then
-        echo "error: nothing to hash" >& 2
+        echo "error: nothing to encode" >& 2
         exit 1
     fi
 
-    _encrypt "$*" "$salt" "$min_length" "$alphabet" "$separators" "$guards"
+    _verify_integers "$*"
+    _encode "$*" "$salt" "$min_length" "$alphabet" "$separators" "$guards"
 }
 
-decrypt() {
+decode() {
 
-    local salt
+
     local hashid
     local min_length
+    local salt
     local alphabet
 
     local OPTIND=0
@@ -350,29 +366,23 @@ decrypt() {
 
     local hashid="$1"
 
-    if [[ -z "$salt" ]]; then
-        echo "error: salt (-s) required" >&2
-        exit 1
-    fi
-
     if [[ -z "$hashid" ]]; then
         echo "error: hashid required" >&2
         exit 1
     fi
 
-    local params
-    params=($(_getparams "$salt" "$min_length" "$alphabet"))
+    local params=($(_getparams "$salt" "$min_length" "$alphabet"))
     alphabet="${params[0]}"
     local separators="${params[1]}"
     local guards="${params[2]}"
 
-    _decrypt "$hashid" "$salt" "$alphabet" "$separators" "$guards"
+    _decode "$hashid" "$salt" "$alphabet" "$separators" "$guards"
 }
 
 usage() {
     local scriptname="${0##*/}"
 cat <<- EOF
-usage: $scriptname (-e|-d) -s SALT [-l MIN_LENGTH -a ALPHABET] (hashid|ints)
+usage: $scriptname (-e|-d) [-s SALT -l MIN_LENGTH -a ALPHABET] (hashid|ints)
     -e <encode>
     -d <decode>
     -s SALT (default: "$DEFAULT_SALT")
@@ -382,11 +392,11 @@ usage: $scriptname (-e|-d) -s SALT [-l MIN_LENGTH -a ALPHABET] (hashid|ints)
 
 Example:
 
-  Encryption:
+  Encoding:
   $ $scriptname -e -s MySalt 25 46 57
   1liJyCK1
 
-  Decryption:
+  Decoding:
   $ $scriptname -d -s MySalt 1liJyCK1
   25
   46
@@ -414,6 +424,11 @@ main() {
             *) echo "error: unknown option $opt" >&2; exit 1;;
         esac
     done
+
+    if (( $OPTIND == 1 )); then
+        usage
+    fi
+
     shift $(( $OPTIND - 1 ))
 
     if [[ -z "$mode" ]]; then
@@ -423,7 +438,7 @@ main() {
 
     case "$mode" in
         encode) encode -s "$salt" -a "$alphabet" -l "$min_length" $*;;
-        decode) decede -s "$salt" -a "$alphabet" -l "$min_length" $*;;
+        decode) decode -s "$salt" -a "$alphabet" -l "$min_length" $*;;
     esac
 }
 
