@@ -98,7 +98,6 @@ _reorder() {
 
     if (( ${#salt} == 0 )); then
         __RETURN="$string"
-        echo "$string"
         return
     fi
 
@@ -112,7 +111,7 @@ _reorder() {
 
     
     while (( $i > 0 )); do
-        let index%=${#salt}
+        index=$(( $index % ${#salt} ))
         _ordinal "${salt:$index:1}"
         let integer_sum+=$__RETURN
         j=$(( $(( $__RETURN + $index + $integer_sum )) % $i ))
@@ -126,12 +125,11 @@ _reorder() {
         string="${string:0:$j}${string:$i:1}${trailer}"
         string="${string:0:$i}${temp}${string:$(( $i + 1 ))}"
 
-        let i-=1
+        i=$(( $i - 1 ))
         let index+=1
     done
 
     __RETURN="$string"
-    echo "$string"
 }
 
 # Ensures the minimal hash length
@@ -173,7 +171,6 @@ _ensure_length() {
     done
 
     __RETURN="$encoded"
-    echo "$encoded"
 }
 
 # Helper function that does the hash building without argument checks
@@ -203,9 +200,8 @@ _encode() {
         value=${values[$i]}
         alphabet_salt="${lottery}${salt}${alphabet}"
         alphabet_salt="${alphabet_salt:0:${len_alphabet}}"
-        alphabet="$(_reorder "$alphabet" "$alphabet_salt")"
-        #_reorder "$alphabet" "$alphabet_salt" > /dev/null
-        #alphabet="$__RETURN"
+        _reorder "$alphabet" "$alphabet_salt"
+        alphabet="$__RETURN"
         _hash "$value" "$alphabet"
         last="$__RETURN"
         encoded="${encoded}${last}"
@@ -216,12 +212,11 @@ _encode() {
 
     encoded="${encoded:0:$(( ${#encoded} - 1 ))}"
 
-    if (( "${#encoded}" >= $min_length )); then
+    if (( ${#encoded} >= $min_length )); then
         echo "$encoded"
     else
-        _ensure_length "$encoded" "$min_length" "$alphabet" "$guards" "$values_hash" > /dev/null
+        _ensure_length "$encoded" "$min_length" "$alphabet" "$guards" "$values_hash"
         echo "$__RETURN"
-        #echo "$(_ensure_length "$encoded" "$min_length" "$alphabet" "$guards" "$values_hash")"
     fi
 }
 
@@ -256,9 +251,8 @@ _decode() {
     for part in ${__RETURN[@]}; do
         alphabet_salt="${lottery_char}${salt}${alphabet}"
         alphabet_salt="${alphabet_salt:0:${#alphabet}}"
-        alphabet="$(_reorder "$alphabet" "$alphabet_salt")"
-        #_reorder "$alphabet" "$alphabet_salt" > /dev/null
-        #alphabet="$__RETURN"
+        _reorder "$alphabet" "$alphabet_salt"
+        alphabet="$__RETURN"
         _unhash "$part" "$alphabet"
         unhashed="$__RETURN"
         if [[ "$unhashed" ]]; then
@@ -304,9 +298,8 @@ _getparams() {
         exit 1
     fi
 
-    separators="$(_reorder "$separators" "$salt")"
-    #_reorder "$separators" "$salt" > /dev/null
-    #separators="$__RETURN"
+    _reorder "$separators" "$salt"
+    separators="$__RETURN"
     _ceil $len_alphabet $RATIO_SEPARATORS
     local min_seperators=$__RETURN
 
@@ -323,9 +316,8 @@ _getparams() {
         fi
     fi
 
-    alphabet="$(_reorder "$alphabet" "$salt")"
-    #_reorder "$alphabet" "$salt" > /dev/null
-    #alphabet="$__RETURN"
+    _reorder "$alphabet" "$salt"
+    alphabet="$__RETURN"
     _ceil $len_alphabet $RATIO_GUARDS
     local num_guards=$__RETURN
     if (( $len_alphabet < 3 )); then
