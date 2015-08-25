@@ -17,11 +17,15 @@ DEFAULT_SALT=""
 RATIO_SEPARATORS=3.5
 RATIO_GUARDS=12
 
+# shared variable to store return values
+__RETURN=
+
 # Splits a string into parts at multiple characters
 _split() {
+    __RETURN=()
     local IFS=$2
     for i in $1; do
-        echo "$i"
+        __RETURN+=("$i")
     done
 }
 
@@ -29,20 +33,20 @@ _split() {
 _indexof() {
     local i="${1%%"$2"*}"
     if (( "${#i}" == "${#1}" )); then
-        echo -1
+        __RETURN=-1
     else
-        echo "${#i}"
+        __RETURN=${#i}
     fi
 }
 
 # Convert an ascii char to integer ordinal value
 _ordinal() {
-    printf "%d" "'$1"
+    __RETURN="$(printf "%d" "'$1")"
 }
 
 # ceil function
 _ceil() {
-    echo "($1 + $2 - 1) / $2" | bc
+    __RETURN="$(bc <<< "($1 + $2 - 1) / $2")"
 }
 
 # Hashes `number` using the given `alphabet` sequence
@@ -57,7 +61,7 @@ _hash() {
         hashed="${alphabet:$(( $number % $len_alphabet )):1}${hashed}"
         number=$(( $number / $len_alphabet ))
         if (( $number == 0 )); then
-            echo "$hashed"
+            __RETURN="$hashed"
             break
         fi
     done
@@ -76,25 +80,24 @@ _unhash() {
 
     for ((i=0; i < $len_hash; i++)); do
         char="${hashed:$i:1}"
-        position=$(_indexof "$alphabet" "$char")
-        if (( $position == -1 )); then
+        _indexof "$alphabet" "$char"
+        if (( $__RETURN == -1 )); then
             echo "error: invalid hashid" >&2
             exit 1
         fi
-        let number+=$(( $position * $len_alphabet ** $(( $len_hash - $i - 1)) ))
+        let number+=$(( $__RETURN * $len_alphabet ** $(( $len_hash - $i - 1)) ))
     done
 
-    echo $number
+    __RETURN="$number"
 }
 
 # Reorders `string` according to `salt`
 _reorder() {
     local string="$1"
     local salt="$2"
-    local decode="$3"
 
     if (( ${#salt} == 0 )); then
-        echo "$string"
+        __RETURN="$string"
         return
     fi
 
@@ -102,17 +105,16 @@ _reorder() {
     local j
     local index=0
     local integer_sum=0
-    local integer
     local salt_index
     local temp
     local trailer
 
     
     while (( $i > 0 )); do
-        let index%=${#salt}
-        integer=$(_ordinal "${salt:$index:1}")
-        let integer_sum+=$integer
-        j=$(( $(( $integer + $index + $integer_sum )) % $i ))
+        index=$(( $index % ${#salt} ))
+        _ordinal "${salt:$index:1}"
+        let integer_sum+=$__RETURN
+        j=$(( $(( $__RETURN + $index + $integer_sum )) % $i ))
 
         temp="${string:$j:1}"
         trailer=""
@@ -123,11 +125,11 @@ _reorder() {
         string="${string:0:$j}${string:$i:1}${trailer}"
         string="${string:0:$i}${temp}${string:$(( $i + 1 ))}"
 
-        let i-=1
+        i=$(( $i - 1 ))
         let index+=1
     done
 
-    echo "$string"
+    __RETURN="$string"
 }
 
 # Ensures the minimal hash length
@@ -139,11 +141,13 @@ _ensure_length() {
     local values_hash="$5"
 
     local len_guards="${#guards}"
-    local guard_index=$(( $(( $values_hash + $(_ordinal "${encoded:0:1}") )) % $len_guards ))
+    _ordinal "${encoded:0:1}"
+    local guard_index=$(( $(( $values_hash + $__RETURN )) % $len_guards ))
     encoded="${guards:${guard_index}:1}${encoded}"
 
     if (( "${#encoded}" < $min_length )); then
-        guard_index=$(( $(( $values_hash + $(_ordinal "${encoded:2:1}") )) % $len_guards ))
+        _ordinal "${encoded:2:1}"
+        guard_index=$(( $(( $values_hash + $__RETURN )) % $len_guards ))
         encoded="${encoded}${guards:${guard_index}:1}"
     fi
 
@@ -154,7 +158,8 @@ _ensure_length() {
     local encoded_len
 
     while (( "${#encoded}" < $min_length )); do
-        alphabet="$(_reorder "$alphabet" "$alphabet")"
+        _reorder "$alphabet" "$alphabet" > /dev/null
+        alphabet="$__RETURN"
         encoded="${alphabet:${split_at}}${encoded}${alphabet:0:${split_at}}"
 
         encoded_len="${#encoded}"
@@ -165,7 +170,7 @@ _ensure_length() {
         fi
     done
 
-    echo "$encoded"
+    __RETURN="$encoded"
 }
 
 # Helper function that does the hash building without argument checks
@@ -195,19 +200,23 @@ _encode() {
         value=${values[$i]}
         alphabet_salt="${lottery}${salt}${alphabet}"
         alphabet_salt="${alphabet_salt:0:${len_alphabet}}"
-        alphabet="$(_reorder "$alphabet" "$alphabet_salt")"
-        last=$(_hash "$value" "$alphabet")
+        _reorder "$alphabet" "$alphabet_salt"
+        alphabet="$__RETURN"
+        _hash "$value" "$alphabet"
+        last="$__RETURN"
         encoded="${encoded}${last}"
-        value=$(( $value % $(( $(_ordinal "${last:0:1}") + $i )) ))
+        _ordinal "${last:0:1}"
+        value=$(( $value % $(( $__RETURN + $i )) ))
         encoded="${encoded}${separators:$(( $value % $len_separators )):1}"
     done
 
     encoded="${encoded:0:$(( ${#encoded} - 1 ))}"
 
-    if (( "${#encoded}" >= $min_length )); then
+    if (( ${#encoded} >= $min_length )); then
         echo "$encoded"
     else
-        echo "$(_ensure_length "$encoded" "$min_length" "$alphabet" "$guards" "$values_hash")"
+        _ensure_length "$encoded" "$min_length" "$alphabet" "$guards" "$values_hash"
+        echo "$__RETURN"
     fi
 }
 
@@ -221,11 +230,11 @@ _decode() {
     local guards="$5"
     local alphabet_salt
 
-    local parts=($(_split "$hashid" "$guards"))
-    if (( 2 <= ${#parts[@]} && ${#parts[@]} <= 3 )); then
-        hashid=${parts[1]}
+    _split "$hashid" "$guards"
+    if (( 2 <= ${#__RETURN[@]} && ${#__RETURN[@]} <= 3 )); then
+        hashid="${__RETURN[1]}"
     else
-        hashid=${parts[0]}
+        hashid="${__RETURN[0]}"
     fi
 
     if [[ -z $hashid ]]; then
@@ -237,11 +246,15 @@ _decode() {
 
     local part
     local unhashed
-    for part in $(_split "$hashid" "$separators"); do
+
+    _split "$hashid" "$separators"
+    for part in ${__RETURN[@]}; do
         alphabet_salt="${lottery_char}${salt}${alphabet}"
         alphabet_salt="${alphabet_salt:0:${#alphabet}}"
-        alphabet="$(_reorder "$alphabet" "$alphabet_salt")"
-        unhashed="$(_unhash "$part" "$alphabet")"
+        _reorder "$alphabet" "$alphabet_salt"
+        alphabet="$__RETURN"
+        _unhash "$part" "$alphabet"
+        unhashed="$__RETURN"
         if [[ "$unhashed" ]]; then
             echo "$unhashed"
         fi
@@ -256,7 +269,8 @@ _getparams() {
     local seps="cfhistuCFHISTU"
     local separators=""
     for ((i=0; i < "${#seps}"; i++)); do
-        if (( $(_indexof "$alphabet" "${seps:$i:1}") >= 0 )); then
+        _indexof "$alphabet" "${seps:$i:1}"
+        if (( $__RETURN >= 0 )); then
             separators="${separators}${seps:$i:1}"
         fi
     done
@@ -265,7 +279,11 @@ _getparams() {
     local x
     for ((i=0; i < "${#alphabet}"; i++ )); do
         x="${alphabet:$i:1}"
-        if (( $(_indexof "$alphabet" "$x") == $i )) && (( $(_indexof "$separators" "$x") == -1 )); then
+        _indexof "$alphabet" "$x"
+        local ret1=$__RETURN
+        _indexof "$separators" "$x"
+        local ret2=$__RETURN
+        if (( $ret1 == $i )) && (( $ret2 == -1 )); then
             _alphabet="${_alphabet}${x}"
         fi
     done
@@ -280,8 +298,10 @@ _getparams() {
         exit 1
     fi
 
-    separators="$(_reorder "$separators" "$salt")"
-    local min_seperators=$(_ceil $len_alphabet $RATIO_SEPARATORS)
+    _reorder "$separators" "$salt"
+    separators="$__RETURN"
+    _ceil $len_alphabet $RATIO_SEPARATORS
+    local min_seperators=$__RETURN
 
     if [[ -z "$separators" ]] || (( $len_separators < $min_seperators )); then
         if (( $min_seperators == 1 )); then
@@ -296,8 +316,10 @@ _getparams() {
         fi
     fi
 
-    alphabet="$(_reorder "$alphabet" "$salt")"
-    local num_guards=$(_ceil $len_alphabet $RATIO_GUARDS)
+    _reorder "$alphabet" "$salt"
+    alphabet="$__RETURN"
+    _ceil $len_alphabet $RATIO_GUARDS
+    local num_guards=$__RETURN
     if (( $len_alphabet < 3 )); then
         guards="${separators:0:${num_guards}}"
         separators="${separators:${num_guards}}"
@@ -306,7 +328,7 @@ _getparams() {
         alphabet="${alphabet:${num_guards}}"
     fi
 
-    echo "$alphabet" "$separators" "$guards"
+    __RETURN=("$alphabet" "$separators" "$guards")
 }
 
 _verify_integers() {
@@ -332,7 +354,8 @@ encode() {
 
     shift $(( $OPTIND - 1 ))
 
-    local params=($(_getparams "$salt" "$min_length" "$alphabet"))
+    _getparams "$salt" "$min_length" "$alphabet"
+    local params=(${__RETURN[@]})
     alphabet="${params[0]}"
     local separators="${params[1]}"
     local guards="${params[2]}"
@@ -371,7 +394,8 @@ decode() {
         exit 1
     fi
 
-    local params=($(_getparams "$salt" "$min_length" "$alphabet"))
+    _getparams "$salt" "$min_length" "$alphabet"
+    local params=(${__RETURN[@]})
     alphabet="${params[0]}"
     local separators="${params[1]}"
     local guards="${params[2]}"
