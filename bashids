@@ -135,7 +135,6 @@ _reorder() {
 }
 
 # Ensures the minimal hash length
-__ENSURE_LENGTH=""
 _ensure_length() {
     local encoded="$1"
     local min_length="$2"
@@ -173,7 +172,7 @@ _ensure_length() {
         fi
     done
 
-    __ENSURE_LENGTH="$encoded"
+    __RETURN="$encoded"
     echo "$encoded"
 }
 
@@ -220,7 +219,9 @@ _encode() {
     if (( "${#encoded}" >= $min_length )); then
         echo "$encoded"
     else
-        echo "$(_ensure_length "$encoded" "$min_length" "$alphabet" "$guards" "$values_hash")"
+        _ensure_length "$encoded" "$min_length" "$alphabet" "$guards" "$values_hash" > /dev/null
+        echo "$__RETURN"
+        #echo "$(_ensure_length "$encoded" "$min_length" "$alphabet" "$guards" "$values_hash")"
     fi
 }
 
