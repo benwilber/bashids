@@ -23,6 +23,13 @@
     [[ "$output" == "w0rR" ]]
 }
 
+@test "encode: zero hash" {
+    run ./bashids -e 0
+    [[ "$output" == "gY" ]]
+    run ./bashids -e 100
+    [[ "$output" == "g56" ]]
+}
+
 @test "encode: multiple numbers" {
     run ./bashids -e 683 94108 123 5
     [[ "$output" == "vJvi7On9cXGtD" ]]

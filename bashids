@@ -185,9 +185,13 @@ _encode() {
     local len_alphabet="${#alphabet}"
     local len_separators="${#separators}"
     local values_hash=0
+    local hashed
 
     for ((i=0; i < ${#values[@]}; i++)); do
-        let values_hash+=$(( ${values[$i]} % $(( $i + 100 )) ))
+        hashed=$(( ${values[$i]} % $(( $i + 100 )) ))
+        if (( $hashed > 0 )); then
+            let values_hash+=$hashed
+        fi
     done
 
     local encoded="${alphabet:$(( $values_hash % $len_alphabet )):1}"
