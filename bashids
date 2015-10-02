@@ -6,7 +6,8 @@
 # Ben Wilber (benwilber@gmail.com)
 # https://github.com/benwilber/bashids
 #
-set -e
+[[ "$DEBUG" ]] && set -x
+set -eo pipefail
 
 # Default alphabet used for building hashids
 ALPHABET="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
@@ -466,5 +467,5 @@ main() {
     esac
 }
 
-main "${@}"
+[[ "${BASH_SOURCE[0]}" == "${0}" ]] && main "${@}"
 
