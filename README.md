@@ -1,7 +1,7 @@
 bashids
 =======
 
-[![ghit.me](https://ghit.me/badge.svg?repo=benwilber/bashids)](https://ghit.me/)
+[![ghit.me](https://ghit.me/badge.svg?repo=benwilber/bashids)](https://ghit.me/repo/benwilber/bashids)
 
 Pure Bash implementation of the `hashid` algorithm from [Hashids.org](http://hashids.org/)
 
