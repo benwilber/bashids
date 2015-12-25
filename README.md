@@ -1,6 +1,8 @@
 bashids
 =======
 
+[![ghit.me](https://ghit.me/badge.svg?repo=benwilber/bashids)](https://ghit.me/)
+
 Pure Bash implementation of the `hashid` algorithm from [Hashids.org](http://hashids.org/)
 
 ## Usage
