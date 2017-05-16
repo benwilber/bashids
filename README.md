@@ -33,10 +33,11 @@ $ bashids -d -s MySalt 1liJyCK1
 
 ### Running tests
 ```bash
-$ bats ./tests.bats 
+$ bats tests.bats 
  ✓ encode: empty
  ✓ encode: default salt
  ✓ encode: single number
+ ✓ encode: zero hash
  ✓ encode: multiple numbers
  ✓ encode: salt
  ✓ encode: alphabet
@@ -58,5 +59,5 @@ $ bats ./tests.bats
  ✓ decode: alphabet without standard separators
  ✓ decode: alphabet with two standard separators
 
-23 tests, 0 failures
+24 tests, 0 failures
 ```
