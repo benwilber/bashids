@@ -46,7 +46,12 @@ _ordinal() {
 
 # ceil function
 _ceil() {
-    __RETURN="$(bc <<< "($1 + $2 - 1) / $2")"
+    local fixed=${2%.*}
+    local decimal=${2#*.}
+    local scale=${#decimal}
+    local factor=$(( 10 ** scale))
+    local number=$(( fixed * factor + decimal ))
+    __RETURN=$(( ( $1 * factor + number - factor ) / number  ))
 }
 
 # Hashes `number` using the given `alphabet` sequence
@@ -374,8 +379,6 @@ encode() {
 }
 
 decode() {
-
-
     local hashid
     local min_length
     local salt
@@ -471,4 +474,3 @@ main() {
 }
 
 main "${@}"
-
