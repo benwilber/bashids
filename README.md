@@ -16,12 +16,12 @@ usage: bashids (-e|-d) [-s SALT -l MIN_LENGTH -a ALPHABET]  (hashid|ints)
     -a ALPHABET (default: abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890)
     -h <help>
 ```
-###Encoding
+### Encoding
 ```bash
 $ bashids -e -s MySalt 25 46 57
 1liJyCK1
 ```
-###Decoding
+### Decoding
 ```bash
 $ bashids -d -s MySalt 1liJyCK1
 25
@@ -30,7 +30,8 @@ $ bashids -d -s MySalt 1liJyCK1
 ```
 ## Tests
 `bashids` uses the [bats](https://github.com/sstephenson/bats) BASH testing framework for tests.
-###Running tests
+
+### Running tests
 ```bash
 $ bats ./tests.bats 
  ✓ encode: empty
