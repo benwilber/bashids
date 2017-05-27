@@ -1,5 +1,7 @@
 language: bash
-  - before_script: wget -qO- 'https://github.com/sstephenson/bats/archive/v0.4.0.tar.gz' | tar -xC /tmp
+
+before_script:
+  - wget -qO- 'https://github.com/sstephenson/bats/archive/v0.4.0.tar.gz' | tar -xC /tmp
 
 script:
   - /tmp/bats-0.4.0/bin/bats tests.bats
