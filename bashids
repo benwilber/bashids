@@ -41,7 +41,7 @@ _indexof() {
 
 # Convert an ascii char to integer ordinal value
 _ordinal() {
-    __RETURN="$(printf "%d" "'$1")"
+    printf -v __RETURN "%d" "'$1"
 }
 
 # ceil function
