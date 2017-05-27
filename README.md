@@ -1,11 +1,9 @@
 bashids
 =======
 
-[![ghit.me](https://ghit.me/badge.svg?repo=benwilber/bashids)](https://ghit.me/repo/benwilber/bashids)
+[![ghit.me](https://ghit.me/badge.svg?repo=benwilber/bashids)](https://ghit.me/repo/benwilber/bashids) [![Build Status](https://travis-ci.org/benwilber/bashids.svg?branch=master)](https://travis-ci.org/benwilber/bashids)
 
 Pure Bash implementation of the `hashid` algorithm from [Hashids.org](http://hashids.org/)
-
-[![Build Status](https://travis-ci.org/benwilber/bashids.svg?branch=master)](https://travis-ci.org/benwilber/bashids)
 
 ## Usage
 ```bash
