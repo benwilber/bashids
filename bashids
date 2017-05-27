@@ -13,11 +13,17 @@ ALPHABET="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 
 # Default minimum length of a hashid
 MIN_LENGTH=0
+
+# Default salt is empty string
 DEFAULT_SALT=""
+
+# Internal options
 RATIO_SEPARATORS=3.5
 RATIO_GUARDS=12
 
-# shared variable to store return values
+# Shared variable to store return values.
+# We use this instead of capturing outputs
+# via subshells.
 __RETURN=
 
 # Splits a string into parts at multiple characters
@@ -270,6 +276,7 @@ _decode() {
     done
 }
 
+# Figures out the the `alphabet`, `seperators`, and `guards`
 _getparams() {
     local salt="$1"
     local min_length="$2"
@@ -340,6 +347,7 @@ _getparams() {
     __RETURN=("$alphabet" "$separators" "$guards")
 }
 
+# Verify that we're only dealing with unsigned ints
 _verify_integers() {
     if ! [[ "$1" =~ ^[0-9\ ]+$ ]]; then
         echo "error: only unsigned integers are supported" >&2
@@ -347,6 +355,7 @@ _verify_integers() {
     fi
 }
 
+# Hashids encode function
 encode() {
     local salt
     local min_length
@@ -378,6 +387,7 @@ encode() {
     _encode "$*" "$salt" "$min_length" "$alphabet" "$separators" "$guards"
 }
 
+# Hashids decode function
 decode() {
     local hashid
     local min_length
@@ -410,6 +420,7 @@ decode() {
     _decode "$hashid" "$salt" "$alphabet" "$separators" "$guards"
 }
 
+# Print usage and exit
 usage() {
     local scriptname="${0##*/}"
 cat <<- EOF
@@ -437,6 +448,7 @@ EOF
 exit 0
 }
 
+# Main entrypoint
 main() {
     local mode
     local salt="$DEFAULT_SALT"
